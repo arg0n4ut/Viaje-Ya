@@ -1,2 +1,2 @@
 # Viaje-Ya
-Organizador de viajes sencillo para grupos
+Simple tool for organizing group trips.
