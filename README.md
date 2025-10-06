@@ -31,6 +31,7 @@ This way, everyone can easily contribute to the planning and have all the import
 
 ### Milestone documentation
 - [Hito 1: Repositorio de pácticas y definición del proyecto](docs-milestones/H1.md)
+according to [Hito 1: instructions](https://github.com/cvillalonga/CC-25-26/blob/main/hitos/1.Repositorio.md)
 
 ### License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
