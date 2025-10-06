@@ -1,5 +1,5 @@
 # Viaje-Ya
-Simple tool for organizing group trips.
+Simple web app for organizing group trips.
 
 Development in the practical part of the course "Cloud Computing: Fundamentos e Infraestructuras" at the Universidad de Granada, taught by Claudia Villalonga.
 
