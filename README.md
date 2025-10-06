@@ -31,3 +31,6 @@ This way, everyone can easily contribute to the planning and have all the import
 
 ### Milestone documentation
 - [Hito 1: Repositorio de pácticas y definición del proyecto](docs-milestones/H1.md)
+
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
