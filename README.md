@@ -30,7 +30,7 @@ This way, everyone can easily contribute to the planning and have all the import
 - PaaS (e.g. Render/Fly.io)
 
 ### Milestone documentation
-- [Hito 1: Repositorio de pácticas y definición del proyecto](docs-milestones/H1.md)
+- [Hito 1: Repositorio de prácticas y definición del proyecto](docs-milestones/H1.md)
 according to [Hito 1: instructions](https://github.com/cvillalonga/CC-25-26/blob/main/hitos/1.Repositorio.md)
 
 ### License
