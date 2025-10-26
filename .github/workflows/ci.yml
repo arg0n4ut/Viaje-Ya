@@ -1,0 +1,30 @@
+name: Continuous Integration
+
+# trigger workflow on push and pull request on main
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+        # 1. check out repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+        # 2. set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' 
+
+        # 3. dependencies
+      - name: Install dependencies
+        run: make install
+
+        # 4. run tests
+      - name: Run tests
+        run: make test
