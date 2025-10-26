@@ -5,6 +5,10 @@ Development in the practical part of the course "Cloud Computing: Fundamentos e 
 
 ## Development status
 - project repository set up
+- Python virtual environment set up
+- testing approach (TDD with pytest) defined and basic test created
+- Makefile created to run tests locally and remotely
+- continuous integration with GitHub Actions implemented
 
 ## Motivation
 When organizing a group trip, it can be difficult to keep track of places to visit, activities to do, things to pack, etc.
