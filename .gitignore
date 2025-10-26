@@ -1,0 +1,10 @@
+venv/*
+docs-milestones/todo.md
+docs-milestones/todo
+# Python cache folders
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+.vscode/
+.pytest_cache/
