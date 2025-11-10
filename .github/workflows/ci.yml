@@ -25,6 +25,14 @@ jobs:
       - name: Install dependencies
         run: make install
 
-        # 4. run tests
+        # 4. build package
+      - name: Build package
+        run: make build
+
+        # 5. install built wheel
+      - name: Install built wheel
+        run: make install-wheel
+
+        # 6. run tests
       - name: Run tests
         run: make test
