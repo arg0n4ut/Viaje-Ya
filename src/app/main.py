@@ -1,8 +1,10 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request
 from typing import List
 from uuid import UUID, uuid4
-from .models import *
-from .repository import *
+from . import database
+from .models import Participant, ParticipantCreate, Trip, TripCreate
+from .repository import ParticipantRepository, TripRepository
 
 import time
 import logging
@@ -12,7 +14,15 @@ from starlette.responses import Response
 
 from pythonjsonlogger import json
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        database.set_client(None)
+
+
+app = FastAPI(lifespan=lifespan)
 
 # configure logger
 logger = logging.getLogger("viaje_ya")
@@ -70,10 +80,31 @@ def get_participant_repository() -> ParticipantRepository:
 
 @app.post("/trips/", response_model=Trip, status_code=201)
 def create_trip(
-    trip_data: Trip,
-    repo: TripRepository = Depends(get_trip_repository)
+    trip_data: TripCreate,
+    repo: TripRepository = Depends(get_trip_repository),
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
 ):
-    return repo.create_trip(trip_data)
+    participant_ids = trip_data.participant_ids
+    if participant_ids:
+        existing = participant_repo.get_participants_by_ids(participant_ids)
+        found_ids = {participant.id for participant in existing}
+        missing = [pid for pid in participant_ids if pid not in found_ids]
+        if missing:
+            raise HTTPException(status_code=400, detail={"unknown_participants": [str(mid) for mid in missing]})
+
+    new_trip = Trip(
+        id=uuid4(),
+        name=trip_data.name,
+        start_date=trip_data.start_date,
+        end_date=trip_data.end_date,
+    )
+
+    try:
+        created = repo.create_trip(new_trip, participant_ids=participant_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return created
 
 @app.get("/trips/", response_model=List[Trip])
 def get_all_trips(repo: TripRepository = Depends(get_trip_repository)):
@@ -88,10 +119,14 @@ def get_trip(trip_id: UUID, repo: TripRepository = Depends(get_trip_repository))
 
 @app.post("/participants/", response_model=Participant, status_code=201)
 def create_participant(
-    participant_data: Participant,
+    participant_data: ParticipantCreate,
     repo: ParticipantRepository = Depends(get_participant_repository)
 ):
-    return repo.create_participant(participant_data)
+    participant = Participant(id=uuid4(), name=participant_data.name)
+    try:
+        return repo.create_participant(participant)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 @app.get("/participants/", response_model=List[Participant])
 def get_all_participants(repo: ParticipantRepository = Depends(get_participant_repository)):
@@ -103,3 +138,28 @@ def get_participant(participant_id: UUID, repo: ParticipantRepository = Depends(
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")
     return participant
+
+@app.post("/trips/{trip_id}/participants/{participant_id}", response_model=Trip)
+def assign_participant_to_trip(
+    trip_id: UUID,
+    participant_id: UUID,
+    trip_repo: TripRepository = Depends(get_trip_repository),
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+):
+    if not participant_repo.get_participant_by_id(participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+    updated = trip_repo.assign_participant(trip_id, participant_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return updated
+
+@app.delete("/trips/{trip_id}/participants/{participant_id}", response_model=Trip)
+def remove_participant_from_trip(
+    trip_id: UUID,
+    participant_id: UUID,
+    repo: TripRepository = Depends(get_trip_repository),
+):
+    updated = repo.remove_participant(trip_id, participant_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return updated

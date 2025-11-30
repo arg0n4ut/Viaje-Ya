@@ -1,0 +1,70 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/arg0n4ut/viaje-ya-app:latest
+    container_name: viaje-ya-api
+    environment:
+      - PYTHONPATH=/app/src
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=viaje_ya
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/arg0n4ut/viaje-ya-app:latest
+    container_name: viaje-ya-worker
+    command: ["python", "-m", "app.worker"]
+    environment:
+      - PYTHONPATH=/app/src
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=viaje_ya
+      - WORKER_SLEEP_SECONDS=30
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    container_name: viaje-ya-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=viaje_ya
+    volumes:
+      - mongo-storage:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "27017:27017"
+    depends_on:
+      mongo-data:
+        condition: service_started
+
+  mongo-data:
+    image: busybox:1.37
+    container_name: viaje-ya-mongo-data
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    volumes:
+      - mongo-storage:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-storage:
+    driver: local

@@ -1,4 +1,4 @@
-.PHONY: install install-dev build install-wheel clean test
+.PHONY: install install-dev build install-wheel clean test docker-build docker-up docker-down
 
 install:
 	@echo "Installing dependencies from requirements.txt..."
@@ -26,3 +26,15 @@ clean:
 test:
 	@echo "Running tests..."
 	pytest
+
+docker-build:
+	@echo "Building docker images..."
+	docker compose -f compose.yaml build
+
+docker-up:
+	@echo "Starting compose cluster..."
+	docker compose -f compose.yaml up --build
+
+docker-down:
+	@echo "Stopping compose cluster and removing volumes..."
+	docker compose -f compose.yaml down --volumes --remove-orphans
