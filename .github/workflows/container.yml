@@ -12,6 +12,8 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/viaje-ya-app:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,7 +26,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build image
-        run: docker build -t ghcr.io/${{ github.repository }}/viaje-ya-app:latest .
+        run: docker build -t "$IMAGE_NAME" .
 
       - name: Compose smoke test
         run: |
@@ -36,4 +38,4 @@ jobs:
 
       - name: Push image
         if: github.event_name == 'push'
-        run: docker push ghcr.io/${{ github.repository }}/viaje-ya-app:latest
+        run: docker push "$IMAGE_NAME"
