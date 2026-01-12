@@ -9,6 +9,6 @@ services:
     healthCheckPath: /
     envVars:
       - key: MONGODB_URI
-        sync: false  # set in Render dashboard to your Atlas URI (include credentials, /viaje_ya)
+        sync: false  # Atlas URI in Render dashboard 
       - key: MONGODB_DB
         value: viaje_ya

@@ -6,10 +6,11 @@ export const options = {
   duration: '1m',
 };
 
-const BASE = __ENV.BASE_URL || 'http://localhost:8000';
+const BASE = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 export default function () {
   const res = http.get(`${BASE}/`);
+//   console.log(res.status, res.body);
   check(res, {
     'status is 200': (r) => r.status === 200,
   });
