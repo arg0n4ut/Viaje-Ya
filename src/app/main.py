@@ -1,15 +1,19 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import List
 from uuid import UUID, uuid4
 from . import database
-from .models import Participant, ParticipantCreate, Trip, TripCreate
+from .models import Participant, ParticipantCreate, Trip, TripCreate, Task, TaskCreate, Proposal, ProposalCreate
 from .repository import ParticipantRepository, TripRepository
 
 import time
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from pydantic import BaseModel
 
 
 from pythonjsonlogger import json
@@ -23,6 +27,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+STATIC_DIR = Path(__file__).parent / "static"
+
+# serve static assets for the lightweight UI
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # configure logger
 logger = logging.getLogger("viaje_ya")
@@ -71,6 +79,14 @@ app.add_middleware(LoggingMiddleware)
 def read_root():
     return {"message": "Welcome to Viaje-Ya"}
 
+
+@app.get("/ui")
+def serve_ui():
+    index_file = STATIC_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="UI not found")
+    return FileResponse(index_file)
+
 # Dependency
 def get_trip_repository() -> TripRepository:
     return TripRepository()
@@ -117,6 +133,14 @@ def get_trip(trip_id: UUID, repo: TripRepository = Depends(get_trip_repository))
         raise HTTPException(status_code=404, detail="Trip not found")
     return trip
 
+
+@app.delete("/trips/{trip_id}", status_code=204)
+def delete_trip(trip_id: UUID, repo: TripRepository = Depends(get_trip_repository)):
+    deleted = repo.delete_trip(trip_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return Response(status_code=204)
+
 @app.post("/participants/", response_model=Participant, status_code=201)
 def create_participant(
     participant_data: ParticipantCreate,
@@ -138,6 +162,19 @@ def get_participant(participant_id: UUID, repo: ParticipantRepository = Depends(
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")
     return participant
+
+
+@app.delete("/participants/{participant_id}", status_code=204)
+def delete_participant(
+    participant_id: UUID,
+    repo: ParticipantRepository = Depends(get_participant_repository),
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    deleted = repo.delete_participant(participant_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    trip_repo.remove_participant_from_all_trips(participant_id)
+    return Response(status_code=204)
 
 @app.post("/trips/{trip_id}/participants/{participant_id}", response_model=Trip)
 def assign_participant_to_trip(
@@ -163,3 +200,149 @@ def remove_participant_from_trip(
     if not updated:
         raise HTTPException(status_code=404, detail="Trip not found")
     return updated
+
+
+class TaskActor(BaseModel):
+    participant_id: UUID
+
+
+class VoteActor(BaseModel):
+    participant_id: UUID
+
+
+@app.post("/trips/{trip_id}/tasks/", response_model=Task, status_code=201)
+def add_task_to_trip(
+    trip_id: UUID,
+    task_data: TaskCreate,
+    trip_repo: TripRepository = Depends(get_trip_repository),
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+):
+    if not participant_repo.get_participant_by_id(task_data.participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    task = Task(
+        id=uuid4(),
+        description=task_data.description,
+        done=False,
+        participant_id=task_data.participant_id,
+    )
+
+    created = trip_repo.add_task(trip_id, task)
+    if not created:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return task
+
+
+@app.post("/trips/{trip_id}/tasks/{task_id}/done", response_model=Task)
+def mark_task_done(
+    trip_id: UUID,
+    task_id: UUID,
+    actor: TaskActor,
+    done: bool = True,
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    if not participant_repo.get_participant_by_id(actor.participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    updated = trip_repo.mark_task_done(trip_id, task_id, done=done)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Task or trip not found")
+    return updated
+
+
+@app.delete("/trips/{trip_id}/tasks/{task_id}", status_code=204)
+def delete_task_from_trip(
+    trip_id: UUID,
+    task_id: UUID,
+    participant_id: UUID,
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    if not participant_repo.get_participant_by_id(participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    removed = trip_repo.remove_task(trip_id, task_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Task or trip not found")
+    return Response(status_code=204)
+
+
+@app.get("/trips/{trip_id}/tasks/", response_model=List[Task])
+def list_tasks_for_trip(
+    trip_id: UUID,
+    repo: TripRepository = Depends(get_trip_repository),
+):
+    trip = repo.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return trip.tasks
+
+
+@app.post("/trips/{trip_id}/proposals/", response_model=Proposal, status_code=201)
+def propose_destination(
+    trip_id: UUID,
+    proposal_data: ProposalCreate,
+    trip_repo: TripRepository = Depends(get_trip_repository),
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+):
+    if not participant_repo.get_participant_by_id(proposal_data.participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    proposal = Proposal(
+        id=uuid4(),
+        title=proposal_data.title,
+        description=proposal_data.description,
+        participant_id=proposal_data.participant_id,
+        upvotes=set(),
+    )
+
+    created = trip_repo.add_proposal(trip_id, proposal)
+    if not created:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return proposal
+
+
+@app.get("/trips/{trip_id}/proposals/", response_model=List[Proposal])
+def list_proposals(
+    trip_id: UUID,
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    proposals = trip_repo.list_proposals(trip_id)
+    if proposals is None:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return proposals
+
+
+@app.post("/trips/{trip_id}/proposals/{proposal_id}/upvote", response_model=Proposal)
+def upvote_proposal(
+    trip_id: UUID,
+    proposal_id: UUID,
+    actor: VoteActor,
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    if not participant_repo.get_participant_by_id(actor.participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    updated = trip_repo.upvote_proposal(trip_id, proposal_id, actor.participant_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Trip or proposal not found")
+    return updated
+
+
+@app.delete("/trips/{trip_id}/proposals/{proposal_id}", status_code=204)
+def delete_proposal(
+    trip_id: UUID,
+    proposal_id: UUID,
+    participant_id: UUID,
+    participant_repo: ParticipantRepository = Depends(get_participant_repository),
+    trip_repo: TripRepository = Depends(get_trip_repository),
+):
+    if not participant_repo.get_participant_by_id(participant_id):
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    removed = trip_repo.remove_proposal(trip_id, proposal_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Trip or proposal not found")
+    return Response(status_code=204)

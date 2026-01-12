@@ -135,3 +135,144 @@ def test_create_trip_with_unknown_participant(client):
     }
     resp = client.post("/trips/", json=payload)
     assert resp.status_code == 400
+
+
+def test_add_task_to_trip(client):
+    trip = client.get("/trips/").json()[0]
+    participant = trip["participants"][0]
+    payload = {"description": "Pack tent", "participant_id": participant["id"]}
+
+    resp = client.post(f"/trips/{trip['id']}/tasks/", json=payload)
+    assert resp.status_code == 201
+    task = resp.json()
+    assert task["description"] == "Pack tent"
+    assert task["participant_id"] == participant["id"]
+    assert task["done"] is False
+
+
+def test_mark_task_done(client):
+    trip = client.get("/trips/").json()[0]
+    participant_id = trip["participants"][0]["id"]
+    create_resp = client.post(
+        f"/trips/{trip['id']}/tasks/",
+        json={"description": "Pack food", "participant_id": participant_id},
+    )
+    task_id = create_resp.json()["id"]
+
+    mark_resp = client.post(
+        f"/trips/{trip['id']}/tasks/{task_id}/done",
+        json={"participant_id": participant_id},
+    )
+    assert mark_resp.status_code == 200
+    task = mark_resp.json()
+    assert task["id"] == task_id
+    assert task["done"] is True
+
+
+def test_remove_task_from_trip(client):
+    trip = client.get("/trips/").json()[0]
+    participant_id = trip["participants"][0]["id"]
+    create_resp = client.post(
+        f"/trips/{trip['id']}/tasks/",
+        json={"description": "Pack stove", "participant_id": participant_id},
+    )
+    task_id = create_resp.json()["id"]
+
+    delete_resp = client.delete(
+        f"/trips/{trip['id']}/tasks/{task_id}",
+        params={"participant_id": participant_id},
+    )
+    assert delete_resp.status_code == 204
+
+    updated_trip = client.get(f"/trips/{trip['id']}").json()
+    assert all(t.get("id") != task_id for t in updated_trip.get("tasks", []))
+
+
+def test_task_participant_not_found(client):
+    trip = client.get("/trips/").json()[0]
+    payload = {"description": "Pack water", "participant_id": str(uuid.uuid4())}
+    resp = client.post(f"/trips/{trip['id']}/tasks/", json=payload)
+    assert resp.status_code == 404
+
+
+def test_list_tasks_for_trip(client):
+    trip = client.get("/trips/").json()[0]
+    tasks_resp = client.get(f"/trips/{trip['id']}/tasks/")
+    assert tasks_resp.status_code == 200
+    tasks = tasks_resp.json()
+    assert isinstance(tasks, list)
+
+
+def test_list_tasks_trip_not_found(client):
+    missing_trip = str(uuid.uuid4())
+    resp = client.get(f"/trips/{missing_trip}/tasks/")
+    assert resp.status_code == 404
+
+
+def test_propose_destination_and_list(client):
+    trip = client.get("/trips/").json()[0]
+    participant_id = trip["participants"][0]["id"]
+    payload = {"title": "Paris", "description": "City trip", "participant_id": participant_id}
+
+    create_resp = client.post(f"/trips/{trip['id']}/proposals/", json=payload)
+    assert create_resp.status_code == 201
+    proposal = create_resp.json()
+    assert proposal["title"] == "Paris"
+    assert proposal["participant_id"] == participant_id
+    assert proposal["upvotes"] == []
+
+    list_resp = client.get(f"/trips/{trip['id']}/proposals/")
+    assert list_resp.status_code == 200
+    proposals = list_resp.json()
+    assert any(p["id"] == proposal["id"] for p in proposals)
+
+
+def test_upvote_proposal_once_per_participant(client):
+    trip = client.get("/trips/").json()[0]
+    participant_id = trip["participants"][0]["id"]
+    create_resp = client.post(
+        f"/trips/{trip['id']}/proposals/",
+        json={"title": "Berlin", "description": "Food tour", "participant_id": participant_id},
+    )
+    proposal_id = create_resp.json()["id"]
+
+    first_vote = client.post(
+        f"/trips/{trip['id']}/proposals/{proposal_id}/upvote",
+        json={"participant_id": participant_id},
+    )
+    assert first_vote.status_code == 200
+    assert len(first_vote.json()["upvotes"]) == 1
+
+    second_vote = client.post(
+        f"/trips/{trip['id']}/proposals/{proposal_id}/upvote",
+        json={"participant_id": participant_id},
+    )
+    assert second_vote.status_code == 200
+    assert len(second_vote.json()["upvotes"]) == 1  # no duplicate vote
+
+
+def test_delete_proposal(client):
+    trip = client.get("/trips/").json()[0]
+    participant_id = trip["participants"][0]["id"]
+    create_resp = client.post(
+        f"/trips/{trip['id']}/proposals/",
+        json={"title": "Rome", "description": "Colosseum", "participant_id": participant_id},
+    )
+    proposal_id = create_resp.json()["id"]
+
+    delete_resp = client.delete(
+        f"/trips/{trip['id']}/proposals/{proposal_id}",
+        params={"participant_id": participant_id},
+    )
+    assert delete_resp.status_code == 204
+
+    proposals = client.get(f"/trips/{trip['id']}/proposals/").json()
+    assert all(p["id"] != proposal_id for p in proposals)
+
+
+def test_proposal_participant_validation(client):
+    trip = client.get("/trips/").json()[0]
+    payload = {"title": "Tokyo", "description": "Sushi tour", "participant_id": str(uuid.uuid4())}
+
+    resp = client.post(f"/trips/{trip['id']}/proposals/", json=payload)
+    assert resp.status_code == 404

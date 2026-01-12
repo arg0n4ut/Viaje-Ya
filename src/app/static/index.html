@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viaje-Ya</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Viaje-Ya</h1>
+    <div class="user-controls">
+      <label for="user-select">Active user:</label>
+      <select id="user-select"></select>
+      <button id="create-user-btn">New user</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" id="status-panel">
+      <div id="status">Ready.</div>
+    </section>
+
+    <section class="panel" id="trip-selector-panel">
+      <h2>Trip workspace</h2>
+      <div class="row">
+        <label for="trip-select">Trip:</label>
+        <select id="trip-select"></select>
+      </div>
+      <div id="trip-details" class="muted">Select a trip to manage it.</div>
+      <div class="row trip-dependent">
+        <select id="participant-assign"></select>
+        <button id="assign-participant">Assign participant to trip</button>
+      </div>
+    </section>
+
+    <section class="panel" id="trip-management-panel">
+      <h2>Trip management</h2>
+      <div class="row">
+        <input id="trip-name" type="text" placeholder="Trip name" />
+        <input id="trip-start" type="date" />
+        <input id="trip-end" type="date" />
+        <button id="add-trip">Add trip</button>
+      </div>
+      <div class="row">
+        <button id="delete-trip">Delete selected trip</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Participants</h2>
+      <div class="row">
+        <input id="new-user-name" type="text" placeholder="Name" />
+        <button id="add-user">Add participant</button>
+      </div>
+      <div class="row">
+        <select id="participant-delete"></select>
+        <button id="delete-user">Delete user</button>
+      </div>
+      <ul id="participants-list"></ul>
+    </section>
+
+    <section class="panel trip-dependent" id="tasks-panel">
+      <h2>Tasks</h2>
+      <div class="row">
+        <input id="task-desc" type="text" placeholder="Task description" />
+        <button id="add-task">Add task to trip</button>
+      </div>
+      <ul id="tasks-list"></ul>
+    </section>
+
+    <section class="panel trip-dependent" id="proposals-panel">
+      <h2>Destinations / Activities</h2>
+      <div class="row">
+        <input id="proposal-title" type="text" placeholder="Title" />
+        <input id="proposal-desc" type="text" placeholder="Description" />
+        <button id="add-proposal">Propose</button>
+      </div>
+      <ul id="proposals-list"></ul>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
