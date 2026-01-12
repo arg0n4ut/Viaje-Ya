@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: viaje-ya-api
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: MONGODB_URI
+        sync: false  # set in Render dashboard to your Atlas URI (include credentials, /viaje_ya)
+      - key: MONGODB_DB
+        value: viaje_ya

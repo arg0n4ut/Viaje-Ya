@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 
 from pythonjsonlogger import json
+from prometheus_fastapi_instrumentator import Instrumentator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,6 +32,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 # serve static assets for the lightweight UI
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# expose prometheus metrics
+Instrumentator().instrument(app).expose(app, include_in_schema=False, should_gzip=True)
 
 # configure logger
 logger = logging.getLogger("viaje_ya")
